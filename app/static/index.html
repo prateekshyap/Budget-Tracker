@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Budget Tracker Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h2 { margin-top: 30px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        tr:hover { background-color: #f9f9f9; }
+        input, select, button { margin: 5px; padding: 5px; }
+        button { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Budget Tracker Dashboard</h1>
+
+    <!-- Add new item -->
+    <h2>Add New Item</h2>
+    <div>
+        <input type="text" id="new-name" placeholder="Name">
+        <input type="text" id="new-category" placeholder="Category">
+        <input type="text" id="new-brand" placeholder="Brand Name">
+        <input type="number" id="new-cost" placeholder="Cost" step="0.01">
+        <input type="date" id="new-purchase">
+        <input type="number" id="new-size" placeholder="Size" step="0.01">
+        <input type="text" id="new-size-unit" placeholder="Size Unit">
+        <button onclick="addItem()">Add Item</button>
+    </div>
+
+    <!-- Filter items -->
+    <h2>Filter Items</h2>
+    <div>
+        <label>Category:</label>
+        <input type="text" id="filter-category" placeholder="e.g., skincare">
+        
+        <label>Brand:</label>
+        <input type="text" id="filter-brand" placeholder="e.g., Plum">
+        <button onclick="fetchItems()">Filter</button>
+        
+        <label>Name:</label>
+        <input type="text" id="filter-name" placeholder="Item name">
+
+        <label>Purchase from:</label>
+        <input type="date" id="filter-purchase-start">
+        <label>Purchase to:</label>
+        <input type="date" id="filter-purchase-end">
+
+        <label>Usage start from:</label>
+        <input type="date" id="filter-usage-start-from">
+        <label>Usage start to:</label>
+        <input type="date" id="filter-usage-start-to">
+    </div>
+
+    <!-- Update usage dates -->
+    <h2>Update Usage Dates</h2>
+    <div>
+        <label>Item ID:</label>
+        <input type="number" id="update-id" placeholder="Enter item ID">
+        <label>Start Date:</label>
+        <input type="date" id="update-start">
+        <label>End Date:</label>
+        <input type="date" id="update-end">
+        <button onclick="updateUsage()">Update</button>
+    </div>
+
+    <!-- Items table -->
+    <h2>All Items</h2>
+    <div>
+        <strong>Total Cost: ₹<span id="total-cost">0</span></strong>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Brand Name</th>
+                <th>Cost</th>
+                <th>Purchase Date</th>
+                <th>Usage Start</th>
+                <th>Usage End</th>
+                <th>Size</th>
+                <th>Size Unit</th>
+            </tr>
+        </thead>
+        <tbody id="items-table">
+            <tr><td colspan="10">Loading...</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        // Fetch and display items
+        async function fetchItems() {
+            const category = document.getElementById("filter-category").value;
+            const brand = document.getElementById("filter-brand").value;
+            const name = document.getElementById("filter-name").value;
+            const purchaseStart = document.getElementById("filter-purchase-start").value;
+            const purchaseEnd = document.getElementById("filter-purchase-end").value;
+            const usageStartFrom = document.getElementById("filter-usage-start-from").value;
+            const usageStartTo = document.getElementById("filter-usage-start-to").value;
+
+            let url = `/api/items/filter?`;
+            let totalCost = 0;
+
+            if(category) url += `category=${category}&`;
+            if(brand) url += `brand_name=${brand}&`;
+            if(name) url += `name=${name}&`;
+            if(purchaseStart) url += `purchase_start=${purchaseStart}&`;
+            if(purchaseEnd) url += `purchase_end=${purchaseEnd}&`;
+            if(usageStartFrom) url += `usage_start_from=${usageStartFrom}&`;
+            if(usageStartTo) url += `usage_start_to=${usageStartTo}&`;
+
+            const response = await fetch(url);
+            const data = await response.json();
+
+            const tbody = document.getElementById("items-table");
+            tbody.innerHTML = "";
+
+            if(data.length === 0){
+                tbody.innerHTML = "<tr><td colspan='10'>No items found</td></tr>";
+                return;
+            }
+
+            data.forEach(item => {
+                totalCost += item.cost || 0;
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${item.id}</td>
+                    <td>${item.name}</td>
+                    <td>${item.category}</td>
+                    <td>${item.brand_name}</td>
+                    <td>${item.cost}</td>
+                    <td>${item.purchase_date || ''}</td>
+                    <td>${item.usage_start_date || ''}</td>
+                    <td>${item.usage_end_date || ''}</td>
+                    <td>${item.size || ''}</td>
+                    <td>${item.size_unit || ''}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            document.getElementById("total-cost").innerText = totalCost.toFixed(2);
+        }
+
+        // Add new item
+        async function addItem() {
+            const bodyData = {
+                name: document.getElementById("new-name").value,
+                category: document.getElementById("new-category").value,
+                brand_name: document.getElementById("new-brand").value,
+                cost: parseFloat(document.getElementById("new-cost").value),
+                purchase_date: document.getElementById("new-purchase").value || null,
+                size: parseFloat(document.getElementById("new-size").value) || null,
+                size_unit: document.getElementById("new-size-unit").value || null
+            };
+
+            const response = await fetch("/api/items/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(bodyData)
+            });
+
+            if(response.ok){
+                alert("Item added!");
+                fetchItems();
+                // Clear input fields
+                document.getElementById("new-name").value = "";
+                document.getElementById("new-category").value = "";
+                document.getElementById("new-brand").value = "";
+                document.getElementById("new-cost").value = "";
+                document.getElementById("new-purchase").value = "";
+                document.getElementById("new-size").value = "";
+                document.getElementById("new-size-unit").value = "";
+            } else {
+                const data = await response.json();
+                alert("Error: " + data.detail);
+            }
+        }
+
+        // Update usage dates
+        async function updateUsage() {
+            const id = document.getElementById("update-id").value;
+            const start = document.getElementById("update-start").value;
+            const end = document.getElementById("update-end").value;
+
+            const bodyData = {};
+            if(start !== "") bodyData.usage_start_date = start;
+            if(end !== "") bodyData.usage_end_date = end;
+
+            const response = await fetch(`/api/items/${id}/usage`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(bodyData)
+            });
+
+            if(response.ok){
+                alert("Usage dates updated!");
+                fetchItems();
+            } else {
+                const data = await response.json();
+                alert("Error: " + data.detail);
+            }
+        }
+
+        // Load all items on page load
+        fetchItems();
+    </script>
+</body>
+</html>
